@@ -31,6 +31,9 @@ extern "C" {
 /* ENABLE_MKL_PARDISO */
 #cmakedefine ENABLE_MKL_PARDISO
 
+/* ENABLE_CS294 */
+#cmakedefine ENABLE_CS294
+
 
 # ifdef __cplusplus
 }

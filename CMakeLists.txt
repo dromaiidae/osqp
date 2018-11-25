@@ -98,6 +98,10 @@ endif()
 message(STATUS "MKL Pardiso: ${ENABLE_MKL_PARDISO}")
 
 
+option (ENABLE_CS294 "Enable CS294 solver" ON)
+message(STATUS "CS294: ${ENABLE_CS294}")
+
+
 # Generate header file with the global options
 # ---------------------------------------------
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/configure/osqp_configure.h.in

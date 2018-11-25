@@ -187,6 +187,76 @@ static char* test_basic_qp_solve_pardiso()
 }
 #endif
 
+#ifdef ENABLE_CS294
+static char* test_basic_qp_solve_cs294()
+{
+  // Problem settings
+  OSQPSettings *settings = (OSQPSettings *)c_malloc(sizeof(OSQPSettings));
+
+  // Structures
+  OSQPWorkspace *work; // Workspace
+  OSQPData *data;      // Data
+  basic_qp_sols_data *sols_data;
+
+  // Populate data
+  data      = generate_problem_basic_qp();
+  sols_data = generate_problem_basic_qp_sols_data();
+
+
+  // Define Solver settings as default
+  osqp_set_default_settings(settings);
+  settings->max_iter      = 2000;
+  settings->alpha         = 1.6;
+  settings->polish        = 1;
+  settings->scaling       = 0;
+  settings->verbose       = 1;
+  settings->warm_start    = 0;
+  settings->linsys_solver = CS294_SOLVER;
+
+  // Setup workspace
+  work = osqp_setup(data, settings);
+
+  // Setup correct
+  mu_assert("Basic QP test solve: Setup error!", work != OSQP_NULL);
+
+  // Solve Problem
+  osqp_solve(work);
+
+  // Compare solver statuses
+  mu_assert("Basic QP test solve: Error in solver status!",
+            work->info->status_val == sols_data->status_test);
+
+  // Compare primal solutions
+  mu_assert("Basic QP test solve: Error in primal solution!",
+            vec_norm_inf_diff(work->solution->x, sols_data->x_test,
+                              data->n) < TESTS_TOL);
+
+  // Compare dual solutions
+  mu_assert("Basic QP test solve: Error in dual solution!",
+            vec_norm_inf_diff(work->solution->y, sols_data->y_test,
+                              data->m) < TESTS_TOL);
+
+
+  // Compare objective values
+  mu_assert("Basic QP test solve: Error in objective value!",
+            c_absval(work->info->obj_val - sols_data->obj_value_test) <
+            TESTS_TOL);
+
+  // Clean workspace
+  osqp_cleanup(work);
+
+
+  // Cleanup data
+  clean_problem_basic_qp(data);
+  clean_problem_basic_qp_sols_data(sols_data);
+
+  // Cleanup
+  c_free(settings);
+
+  return 0;
+}
+#endif
+
 static char* test_basic_qp_update()
 {
   // Problem settings
@@ -563,6 +633,9 @@ static char* test_basic_qp()
   mu_run_test(test_basic_qp_solve);
 #ifdef ENABLE_MKL_PARDISO
   mu_run_test(test_basic_qp_solve_pardiso);
+#endif
+#ifdef ENABLE_CS294
+  mu_run_test(test_basic_qp_solve_cs294);
 #endif
   mu_run_test(test_basic_qp_update);
   mu_run_test(test_basic_qp_check_termination);

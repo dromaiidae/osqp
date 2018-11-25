@@ -34,6 +34,23 @@ if (ENABLE_MKL_PARDISO)
 	set(direct_linsys_solvers_includes "${direct_linsys_solvers_includes};${CMAKE_CURRENT_SOURCE_DIR}/pardiso/")
 endif()
 
+# CS294
+# -----------
+# If CS294 is enabled, include cs294 directory
+if (ENABLE_CS294)
+	# Add cs294 interface
+	add_subdirectory(cs294)
+
+	add_library(linsys_cs294 OBJECT ${cs294_sources})
+
+	# Add parent directory for library handler
+	target_include_directories(linsys_cs294 PRIVATE  ${cs294_includes} ${PROJECT_SOURCE_DIR}/include)
+
+	set(direct_linsys_solvers ${direct_linsys_solvers} $<TARGET_OBJECTS:linsys_cs294>)
+
+	set(direct_linsys_solvers_includes "${direct_linsys_solvers_includes};${CMAKE_CURRENT_SOURCE_DIR}/cs294/")
+endif()
+
 
 endif()
 

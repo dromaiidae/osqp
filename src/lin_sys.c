@@ -6,6 +6,10 @@
 # include "pardiso_interface.h"
 # include "pardiso_loader.h"
 #endif /* ifdef ENABLE_MKL_PARDISO */
+#ifdef ENABLE_CS294
+# include "cs294_interface.h"
+# include "cs294_loader.h"
+#endif /* ifdef ENABLE_CS294 */
 
 
 #ifndef EMBEDDED
@@ -25,6 +29,12 @@ c_int load_linsys_solver(enum linsys_solver_type linsys_solver) {
     return lh_load_pardiso(OSQP_NULL);
 
 # endif /* ifdef ENABLE_MKL_PARDISO */
+# ifdef ENABLE_CS294
+    case CS294_SOLVER:
+
+    // Load CS294 library
+    return lh_load_cs294(OSQP_NULL);
+# endif /* ifdef ENABLE_CS294 */
   default: // QDLDL
     return 0;
   }
@@ -45,6 +55,13 @@ c_int unload_linsys_solver(enum linsys_solver_type linsys_solver) {
     return lh_unload_pardiso();
 
 # endif /* ifdef ENABLE_MKL_PARDISO */
+# ifdef ENABLE_CS294
+  case CS294_SOLVER:
+
+    // Unload CS294 library
+    return lh_unload_cs294();
+
+# endif /* ifdef ENABLE_CS294 */
   default: //  QDLDL
     return 0;
   }
@@ -72,6 +89,12 @@ LinSysSolver* init_linsys_solver(const csc              *P,
                                                       polish);
 
 # endif /* ifdef ENABLE_MKL_PARDISO */
+# ifdef ENABLE_CS294
+    case CS294_SOLVER:
+      return (LinSysSolver *)init_linsys_solver_cs294(P, A, sigma, rho_vec,
+                                                        polish);
+
+# endif /* ifdef ENABLE_CS294 */
   default: // QDLDL
     return (LinSysSolver *)init_linsys_solver_qdldl(P,
                                                     A,

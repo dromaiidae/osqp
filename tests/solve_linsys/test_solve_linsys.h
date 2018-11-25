@@ -112,11 +112,64 @@ static char* test_solveKKT_pardiso() {
 }
 #endif
 
+#ifdef ENABLE_CS294
+static char* test_solveKKT_cs294() {
+  c_int m, exitflag = 0;
+  c_float *rho_vec;
+  LinSysSolver *p; // Private structure to form KKT factorization
+  OSQPSettings *settings = (OSQPSettings *)c_malloc(sizeof(OSQPSettings)); // Settings
+
+  solve_linsys_sols_data *data = generate_problem_solve_linsys_sols_data();
+
+  // Settings
+  settings->rho   = data->test_solve_KKT_rho;
+  settings->sigma = data->test_solve_KKT_sigma;
+
+  // Set rho_vec
+  m       = data->test_solve_KKT_A->m;
+  rho_vec = c_calloc(m, sizeof(c_float));
+  vec_add_scalar(rho_vec, settings->rho, m);
+
+  // Load CS294 shared library
+  exitflag = load_linsys_solver(CS294_SOLVER);
+  mu_assert("Linear system solve test: error in loading CS294 shared library",
+            exitflag == 0);
+
+  // Form and factorize KKT matrix
+  p = init_linsys_solver(data->test_solve_KKT_Pu, data->test_solve_KKT_A,
+                         settings->sigma, rho_vec, CS294_SOLVER, 0);
+
+  // Solve  KKT x = b via LDL given factorization
+  p->solve(p, data->test_solve_KKT_rhs, settings);
+
+  mu_assert(
+          "Linear systems solve tests: error in forming and solving KKT system with CS294!",
+          vec_norm_inf_diff(data->test_solve_KKT_rhs, data->test_solve_KKT_x,
+                            data->test_solve_KKT_m + data->test_solve_KKT_n) <
+          TESTS_TOL);
+
+
+  // Cleanup
+  p->free(p);
+  c_free(settings);
+  c_free(rho_vec);
+  clean_problem_solve_linsys_sols_data(data);
+
+  // Unload CS294 shared library
+  exitflag = unload_linsys_solver(CS294_SOLVER);
+
+  return 0;
+}
+#endif
+
 static char* test_solve_linsys()
 {
   mu_run_test(test_solveKKT);
 #ifdef ENABLE_MKL_PARDISO
   mu_run_test(test_solveKKT_pardiso);
+#endif
+#ifdef ENABLE_CS294
+    mu_run_test(test_solveKKT_cs294);
 #endif
 
   return 0;
