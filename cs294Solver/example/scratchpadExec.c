@@ -18,7 +18,7 @@ int readArray(int rows, int cols, double array[rows][cols], const char *filepath
 
 int main(int argc, char **argv) {
     if (argc > 2) {
-        fprintf(stderr, "Too many arguments. Arguments are: filepath (optional)");
+        fprintf(stderr, "Too many arguments. Usage is: %s <filepath (optional)>\n", argv[0]);
         return 1;
     }
     char *filepath;
