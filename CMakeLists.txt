@@ -118,13 +118,13 @@ set(CMAKE_C_FLAGS_DEBUG "-DDDEBUG")
 if (NOT MSVC)
 
     if (COVERAGE)
-        set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} --coverage")
+        set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} --coverage -O3 -mavx -msse3 -msse2")
 	if(FORTRAN)
 		set(CMAKE_FORTRAN_FLAGS "${CMAKE_FORTRAN_FLAGS} --coverage")
 	endif(FORTRAN)
     endif()
 
-    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -O3")
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -O3 -mavx -msse3 - msse2")
     set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -O0 -g")
     set(CMAKE_C_STANDARD_LIBRARIES "${CMAKE_C_STANDARD_LIBRARIES} -lm")      # Include math
     # Include real time library in linux

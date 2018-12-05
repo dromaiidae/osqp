@@ -3,7 +3,7 @@
 #include <stdint.h>
 #include <math.h>
 #include <time.h>
-#include <x86intrin.h>
+#include <immintrin.h>
 
 // Idea: we can allocate a 1-D array and index properly to see if it improves locality
 void *allocArray(int rows, int cols) {
@@ -19,19 +19,19 @@ void print_matrix(int m, int n, double matrix[m][n]) {
     }
 }
 
-void update_sqrt_simd(int col, int dimension, double array[dimension][dimension]) {
-    __mm256d column_values, divisor, result;
+void update_divide_col_sqrt_simd(int col, int dimension, double array[dimension][dimension]) {
+    __m256d column_values, divisor, result;
     double load_array[] = {0,0,0,0};
 
     double square_rooted = sqrt(array[col][col]);
 
-    divisor = __mm256_set_pd(square_rooted, square_rooted, square_rooted, square_rooted);
+    divisor = _mm256_set_pd(square_rooted, square_rooted, square_rooted, square_rooted);
 
-    array[col][col] = square_rooted; // can be vectorized I think
+    array[col][col] = square_rooted; // unsure if there is a sqrt vector
 
     int i;
-    for (i = col+1, i+3 < dimension; i += 4) {
-        // load column values
+    for (i=col+1; i+3 < dimension; i += 4) {
+        // load 4 values from same column
         column_values = _mm256_set_pd(array[i][col], array[i+1][col], array[i+2][col], array[i+3][col]);
         // divide by the square root
         result = _mm256_div_pd(column_values, divisor);
@@ -43,12 +43,44 @@ void update_sqrt_simd(int col, int dimension, double array[dimension][dimension]
         array[i+2][col] = load_array[2];
         array[i+3][col] = load_array[3];
     }
-
     // Update remainder of values
     for (i; i < dimension; i++) {
         array[i][col] = array[i][col] / square_rooted;
     }
-    
+}
+
+void update_col_simd(int col_to_update_j, int prev_col_k, int dimension, double array[dimension][dimension]) {
+    __m256d a_ij, column_values, multiplicand, multiplication_result, new_a_ij;
+    double load_array[] = {0,0,0,0};
+    double value_jk = array[col_to_update_j][prev_col_k];
+
+    multiplicand = _mm256_set_pd(value_jk, value_jk, value_jk, value_jk); // a_jk
+
+    int i;
+    for (i=col_to_update_j; i+3 < dimension; i += 4) {
+        // load 4 consecutive values from k column
+        column_values = _mm256_set_pd(array[i][prev_col_k], array[i+1][prev_col_k], array[i+2][prev_col_k], array[i+3][prev_col_k]);
+        // multiply a_ik * a_jk
+        multiplication_result = _mm256_mul_pd(column_values, multiplicand);
+
+        // load a_ij to perform a_ij -= a_ik * a_jk
+        a_ij = _mm256_set_pd(array[i][col_to_update_j], array[i+1][col_to_update_j], array[i+2][col_to_update_j], array[i+3][col_to_update_j]);
+
+        // perform the subtraction
+        new_a_ij = _mm256_sub_pd(a_ij, multiplication_result);
+
+        // load the answer
+        _mm256_store_pd(&load_array, new_a_ij);
+        // reassign
+        array[i][col_to_update_j] = load_array[0];
+        array[i+1][col_to_update_j] = load_array[1];
+        array[i+2][col_to_update_j] = load_array[2];
+        array[i+3][col_to_update_j] = load_array[3];
+    }
+    // Update remainder of values
+    for (i; i < dimension; i++) {
+        array[i][col_to_update_j] -= array[i][prev_col_k] * array[col_to_update_j][prev_col_k];
+    }
 }
 
 // Adapted from https://courses.engr.illinois.edu/cs554/fa2015/notes/07_cholesky.pdf
