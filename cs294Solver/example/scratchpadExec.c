@@ -3,6 +3,7 @@
 #include <stdint.h>
 #include <math.h>
 #include <time.h>
+#include <x86intrin.h>
 
 // Idea: we can allocate a 1-D array and index properly to see if it improves locality
 void *allocArray(int rows, int cols) {
@@ -16,6 +17,38 @@ void print_matrix(int m, int n, double matrix[m][n]) {
             }
         printf("\n");
     }
+}
+
+void update_sqrt_simd(int col, int dimension, double array[dimension][dimension]) {
+    __mm256d column_values, divisor, result;
+    double load_array[] = {0,0,0,0};
+
+    double square_rooted = sqrt(array[col][col]);
+
+    divisor = __mm256_set_pd(square_rooted, square_rooted, square_rooted, square_rooted);
+
+    array[col][col] = square_rooted; // can be vectorized I think
+
+    int i;
+    for (i = col+1, i+3 < dimension; i += 4) {
+        // load column values
+        column_values = _mm256_set_pd(array[i][col], array[i+1][col], array[i+2][col], array[i+3][col]);
+        // divide by the square root
+        result = _mm256_div_pd(column_values, divisor);
+        // load the answer
+        _mm256_store_pd(&load_array, result);
+        // reassign
+        array[i][col] = load_array[0];
+        array[i+1][col] = load_array[1];
+        array[i+2][col] = load_array[2];
+        array[i+3][col] = load_array[3];
+    }
+
+    // Update remainder of values
+    for (i; i < dimension; i++) {
+        array[i][col] = array[i][col] / square_rooted;
+    }
+    
 }
 
 // Adapted from https://courses.engr.illinois.edu/cs554/fa2015/notes/07_cholesky.pdf
