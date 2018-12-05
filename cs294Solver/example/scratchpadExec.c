@@ -83,6 +83,18 @@ void update_mod_col_simd(int col_to_update_j, int prev_col_k, int dimension, dou
     }
 }
 
+
+void cholesky_simd(int dimension, double array[dimension][dimension]) {
+    int j;
+    int k;
+    for (j = 0; j < dimension; j++) {
+        for (k = 0; k < j-1; k++) {
+            update_mod_col_simd(j, k, dimension, array);
+        }
+        update_divide_col_sqrt_simd(j, dimension, array);
+    }
+}
+
 // Adapted from https://courses.engr.illinois.edu/cs554/fa2015/notes/07_cholesky.pdf
 void cholesky_column_unoptimized_2(int dimension, double array[dimension][dimension]) {
     int i;
@@ -167,6 +179,16 @@ float time_cholesky_column_unoptimized(int dimension, double array[dimension][di
     }
    printf("Cholesky Column Unoptimized took %d milliseconds to complete on average of %d runs\n", avg / num_runs, num_runs);
 }
+
+void time_cholesky_simd(int dimension, double array[dimension][dimension]) {
+    clock_t start, end;
+    start = clock();
+    cholesky_simd(dimension, array);
+    end = clock();
+    printf("Cholesky optimized with SIMD took %d milliseconds to complete\n", end - start);
+    
+}
+
 
 int main(int argc, char **argv) {
     if (argc > 2) {
