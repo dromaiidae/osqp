@@ -49,7 +49,7 @@ void update_divide_col_sqrt_simd(int col, int dimension, double array[dimension]
     }
 }
 
-void update_col_simd(int col_to_update_j, int prev_col_k, int dimension, double array[dimension][dimension]) {
+void update_mod_col_simd(int col_to_update_j, int prev_col_k, int dimension, double array[dimension][dimension]) {
     __m256d a_ij, column_values, multiplicand, multiplication_result, new_a_ij;
     double load_array[] = {0,0,0,0};
     double value_jk = array[col_to_update_j][prev_col_k];
