@@ -20,6 +20,61 @@ void print_matrix(int m, int n, double matrix[m][n]) {
 }
 
 
+void update_divide_col_sqrt_simd_T(int col, int dimension, double array[dimension][dimension]) {
+    __m256d column_values, divisor, result;
+
+    double load_array[] = {0,0,0,0};
+    // 1 / sqrt and just multiply
+    double square_rooted = sqrt(array[col][col]);
+    divisor = _mm256_set_pd(square_rooted, square_rooted, square_rooted, square_rooted);
+    double print[] = {0,0,0,0};
+
+    array[col][col] = square_rooted; // unsure if there is a sqrt vector
+
+    int i;
+    for (i=col+1; i+3 < dimension; i += 4) {
+        // load 4 values from same column
+        column_values = _mm256_set_pd(array[col][i+3], array[col][i+2], array[col][i+1], array[col][i]);
+        // divide by the square root
+        result = _mm256_div_pd(column_values, divisor);
+        // store the answer
+        _mm256_store_pd(&array[col][i], result);
+    }
+    // Update remainder of values
+    for (; i < dimension; i++) {
+        array[col][i] = array[col][i] / square_rooted;
+    }
+}
+
+
+void update_mod_col_simd_T(int col_to_update_j, int prev_col_k, int dimension, double array[dimension][dimension]) {
+    __m256d a_ij, column_values, multiplicand, multiplication_result, new_a_ij;
+    double load_array[] = {0,0,0,0};
+    double value_jk = array[prev_col_k][col_to_update_j];
+    multiplicand = _mm256_set_pd(value_jk, value_jk, value_jk, value_jk); // a_jk
+
+
+    int i;
+    for (i=col_to_update_j; i+3 < dimension; i += 4) {
+        // load 4 consecutive values from k column
+        column_values = _mm256_set_pd(array[prev_col_k][i+3], array[prev_col_k][i+2], array[prev_col_k][i+1], array[prev_col_k][i]);
+        // multiply a_ik * a_jk
+        multiplication_result = _mm256_mul_pd(column_values, multiplicand); // array[prev_col_k][i], array[prev_col_k][i+1] array[prev_col_k][i+2] ..
+        // load a_ij to perform a_ij -= a_ik * a_jk
+        a_ij = _mm256_set_pd(array[col_to_update_j][i+3], array[col_to_update_j][i+2], array[col_to_update_j][i+1], array[col_to_update_j][i]);
+        // perform the subtraction
+        new_a_ij = _mm256_sub_pd(a_ij, multiplication_result); // [prev_col_k][i], i+1, i+2, i+3 a_ij
+        // load the proper values
+        _mm256_store_pd(&array[col_to_update_j][i], new_a_ij);
+    }
+    // Update remainder of values
+    for (; i < dimension; i++) {
+        array[col_to_update_j][i] -= array[prev_col_k][i] * array[prev_col_k][col_to_update_j];
+    }
+}
+
+
+
 void update_divide_col_sqrt_simd_3(int col, int dimension, double array[dimension][dimension]) {
     __m256d column_values, divisor, result;
     double load_array[] = {0,0,0,0};
@@ -196,9 +251,9 @@ void cholesky_simd_smartloading(int dimension, double array[dimension][dimension
     int k;
     for (j = 0; j < dimension; j++) {
         for (k = 0; k < j; k++) {
-            update_mod_col_simd_3(j, k, dimension, array);
+            update_mod_col_simd_T(j, k, dimension, array);
         }
-        update_divide_col_sqrt_simd_3(j, dimension, array);
+        update_divide_col_sqrt_simd_T(j, dimension, array);
         // printf("coldiv %d %lf\n", j, array[2][2]);
 
     }
@@ -206,7 +261,6 @@ void cholesky_simd_smartloading(int dimension, double array[dimension][dimension
 }
 
 void cholesky_simd(int dimension, double array[dimension][dimension]) {
-    printf("SIMD Regular: \n");
     int j;  
     int k;
     for (j = 0; j < dimension; j++) {
@@ -214,16 +268,13 @@ void cholesky_simd(int dimension, double array[dimension][dimension]) {
             update_mod_col_simd(j, k, dimension, array);
         }
         update_divide_col_sqrt_simd(j, dimension, array);
-        // printf("coldiv %d %lf\n", j, array[2][2]);
     }
     print_matrix(dimension, dimension, array);
 }
 
 // Adapted from https://courses.engr.illinois.edu/cs554/fa2015/notes/07_cholesky.pdf
 void cholesky_column_unoptimized(int dimension, double array[dimension][dimension]) {
-    int i;
-    int j;
-    int k;
+    int i, j, k;
     for (j = 0; j < dimension; j++) {
         for (k = 0; k < j; k++) {
             for (i = j; i < dimension; i++) {
@@ -235,7 +286,6 @@ void cholesky_column_unoptimized(int dimension, double array[dimension][dimensio
             array[i][j] = array[i][j] / array[j][j];
         }
     }
-    // print_matrix(dimension, dimension, array);
 } 
 
 void cholesky_row_unoptimized(int dimension, double array[dimension][dimension], double decomp[dimension][dimension]) {
@@ -272,12 +322,29 @@ int readArray(int rows, int cols, double array[rows][cols], const char *filepath
     return 0;
 }
 
+void transpose(int dimension, double array[dimension][dimension], double transposed[dimension][dimension]) {
+    double* data = malloc(sizeof(double)*dimension);
+    int row;
+    int col;
+    int transpose_row_insert;
+    for (row = 0; row < dimension; row++) {
+        for (col = 0; col < dimension; col++) {
+            data[col] = array[row][col];
+        }
+        for (transpose_row_insert = 0; transpose_row_insert < dimension; transpose_row_insert++) {
+            transposed[transpose_row_insert][row] = data[transpose_row_insert];
+        }
+        memset(data, 0, dimension);
+    }
+    free(data);
+}
+
 float time_cholesky_row_unoptimized(int dimension, double array[dimension][dimension], double decomp[dimension][dimension]) {
     int avg = 0;
-    int num_runs = 10;
+    int num_runs = 1;
     int i;
     int msec;
-    for (i = 0; i < 10; i++) {
+    for (i = 0; i < num_runs; i++) {
         clock_t start = clock();
         clock_t end;
         cholesky_row_unoptimized(dimension, array, decomp);
@@ -295,7 +362,8 @@ float time_cholesky_column_unoptimized(int dimension, double array[dimension][di
     int msec;
     for (i = 0; i < 1; i++) {
         clock_t end;
-        clock_t start = clock();
+        clock_t start;
+        start = clock();
         cholesky_column_unoptimized(dimension, array);
         end = clock();
         msec = (end - start) * 1000 / CLOCKS_PER_SEC; 
@@ -318,6 +386,10 @@ void time_cholesky_simd_smartloading(int dimension, double array[dimension][dime
     start = clock();
     cholesky_simd_smartloading(dimension, array);
     end = clock();
+    double (*transposedprint)[dimension] = allocArray(dimension, dimension);
+    transpose(dimension, array, transposedprint);
+    print_matrix(dimension, dimension, transposedprint);
+    free(transposedprint);
     printf("Cholesky Smartloaded optimized with SIMD took %d milliseconds to complete\n", (end - start) * 1000 / CLOCKS_PER_SEC);
     
 }
@@ -339,10 +411,15 @@ int main(int argc, char **argv) {
     int rows = 450;
     double (*matrix)[cols] = allocArray(rows, cols);
     double (*decomp_cholesky)[cols] = allocArray(rows, cols);
+    double (*transposed)[cols] = allocArray(rows, cols);
 
     if (readArray(rows, cols, matrix, filepath) != 0) {
         return 1;
     }
+
+    transpose(rows, matrix, transposed);
+
+    // print_matrix(rows, rows, matrix);
 
     // time_cholesky_column_unoptimized(rows, matrix);
 
@@ -350,9 +427,10 @@ int main(int argc, char **argv) {
     // cholesky_simd(rows, matrix);
     // time_cholesky_SIMD(rows, matrix);
 
-    time_cholesky_simd_smartloading(rows, matrix);
+    time_cholesky_simd_smartloading(rows, transposed);
 
     free(matrix);
     free(decomp_cholesky);
+    free(transposed);
     return 0;
 }
