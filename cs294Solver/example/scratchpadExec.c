@@ -28,17 +28,17 @@ void update_divide_col_sqrt_simd_T(int col, int dimension, double array[dimensio
     double load_array[] = {0,0,0,0};
     // 1 / sqrt and just multiply
     double square_rooted = sqrt(array[col][col]);
-    divisor = _mm256_set_pd(square_rooted, square_rooted, square_rooted, square_rooted);
     double print[] = {0,0,0,0};
 
     array[col][col] = square_rooted; // unsure if there is a sqrt vector
+    divisor = _mm256_set_pd(1/square_rooted, 1/square_rooted, 1/square_rooted, 1/square_rooted);
 
     int i;
     for (i=col+1; i+3 < dimension; i += 4) {
         // load 4 values from same column
         column_values = _mm256_set_pd(array[col][i+3], array[col][i+2], array[col][i+1], array[col][i]);
         // divide by the square root
-        result = _mm256_div_pd(column_values, divisor);
+        result = _mm256_mul_pd(column_values, divisor);
         // store the answer
         _mm256_store_pd(&array[col][i], result);
     }
@@ -141,7 +141,6 @@ void update_mod_col_simd(int col_to_update_j, int prev_col_k, int dimension, dou
 }
 
 void cholesky_simd_smartloading(int dimension, double array[dimension][dimension]) {
-    printf("SIMD Smartloading: \n");
     int j;  
     int k;
     for (j = 0; j < dimension; j++) {
