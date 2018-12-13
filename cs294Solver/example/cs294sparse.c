@@ -6,8 +6,8 @@
 #include <immintrin.h>
 
 #define BILLION 1000000000L /* https://www.cs.rutgers.edu/~pxk/416/notes/c-tutorials/gettime.html */
-#define DIMENSION 450
-#define FILEPATH "../data/matrix2.mat"
+#define DIMENSION 160
+#define FILEPATH "../data/matrix_160.mat"
 
 int* SPARSE_ROW[DIMENSION];
 
@@ -198,8 +198,8 @@ int main(int argc, char **argv) {
         filepath = argv[1];
     }
 
-    int cols = 450;
-    int rows = 450;
+    int cols = DIMENSION;
+    int rows = DIMENSION;
 
     double (*matrix)[cols] = allocArray(rows, cols);
 

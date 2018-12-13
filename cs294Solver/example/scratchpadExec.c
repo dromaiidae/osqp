@@ -6,7 +6,7 @@
 #include <immintrin.h>
 
 #define BILLION 1000000000L /* https://www.cs.rutgers.edu/~pxk/416/notes/c-tutorials/gettime.html */
-#define DIMENSION 450
+#define DIMENSION 4000
 
 
 // Idea: we can allocate a 1-D array and index properly to see if it improves locality
@@ -288,7 +288,7 @@ int main(int argc, char **argv) {
     }
     char *filepath;
     if (argc == 1) {
-        filepath = "../data/matrix2.mat";
+        filepath = "../data/matrix_4k.mat";
     } else {
         filepath = argv[1];
     }
@@ -306,14 +306,18 @@ int main(int argc, char **argv) {
     transpose(rows, matrix, transposed);
 
     // print_matrix(rows, rows, matrix);
-
-    // time_cholesky_column_unoptimized(rows, matrix);
+    int i;
+    for (i = 0; i < 5; i++) {
+        time_cholesky_column_unoptimized(rows, matrix);
+        time_cholesky_row_unoptimized(rows, matrix, decomp_cholesky);
+    }
+    // 
 
     // time_cholesky_row_unoptimized(rows, matrix, decomp_cholesky);
     // cholesky_simd(rows, matrix);
     // time_cholesky_SIMD(rows, matrix);
 
-    time_cholesky_simd_smartloading(rows, transposed);
+    // time_cholesky_simd_smartloading(rows, transposed);
 
     free(matrix);
     free(decomp_cholesky);
