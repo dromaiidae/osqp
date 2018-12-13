@@ -5,6 +5,10 @@
 #include <time.h>
 #include <immintrin.h>
 
+#define BILLION 1000000000L /* https://www.cs.rutgers.edu/~pxk/416/notes/c-tutorials/gettime.html */
+#define DIMENSION 450
+
+
 // Idea: we can allocate a 1-D array and index properly to see if it improves locality
 void *allocArray(int rows, int cols) {
     return malloc(sizeof(double[rows][cols])); // allocate 1 2D-array
@@ -18,8 +22,6 @@ void print_matrix(int m, int n, double matrix[m][n]) {
         printf("\n");
     }
 }
-
-
 
 // SIMD on Transpose
 void update_divide_col_sqrt_simd_T(int col, int dimension, double array[dimension][dimension]) {
@@ -234,36 +236,28 @@ void transpose(int dimension, double array[dimension][dimension], double transpo
 }
 
 float time_cholesky_row_unoptimized(int dimension, double array[dimension][dimension], double decomp[dimension][dimension]) {
-    int avg = 0;
-    int num_runs = 1;
-    int i;
-    int msec;
-    for (i = 0; i < num_runs; i++) {
-        clock_t start = clock();
-        clock_t end;
-        cholesky_row_unoptimized(dimension, array, decomp);
-        end = clock();
-        msec = (end - start) * 1000 / CLOCKS_PER_SEC; // https://stackoverflow.com/questions/459691/best-timing-method-in-c
-        avg += msec;
-    }
-   printf("Cholesky Row Unoptimized took %d milliseconds to complete on average of %d runs\n", avg / num_runs, num_runs);
+
+
+    struct timespec start, end;
+    uint64_t diff;
+
+    clock_gettime(CLOCK_REALTIME, &start);
+    cholesky_row_unoptimized(dimension, array, decomp);
+    clock_gettime(CLOCK_REALTIME, &end);
+    diff = BILLION * (end.tv_sec - start.tv_sec) + end.tv_nsec - start.tv_nsec;
+    printf("Cholesky Row Unoptimized took %d seconds (%llu nanoseconds) to complete\n", end.tv_sec - start.tv_sec, (long long unsigned int) diff);
 }
 
 float time_cholesky_column_unoptimized(int dimension, double array[dimension][dimension]) {
-    int avg = 0;
-    int num_runs = 1;
-    int i;
-    int msec;
-    for (i = 0; i < 1; i++) {
-        clock_t end;
-        clock_t start;
-        start = clock();
-        cholesky_column_unoptimized(dimension, array);
-        end = clock();
-        msec = (end - start) * 1000 / CLOCKS_PER_SEC; 
-        avg += msec;
-    }
-   printf("Cholesky Column Unoptimized took %d milliseconds to complete on average of %d runs\n", avg / num_runs, num_runs);
+
+    struct timespec start, end;
+    uint64_t diff;
+
+    clock_gettime(CLOCK_REALTIME, &start);
+    cholesky_column_unoptimized(dimension, array);
+    clock_gettime(CLOCK_REALTIME, &end);
+    diff = BILLION * (end.tv_sec - start.tv_sec) + end.tv_nsec - start.tv_nsec;
+    printf("Cholesky Column Unoptimized took %d seconds (%llu nanoseconds) to complete\n", end.tv_sec - start.tv_sec, (long long unsigned int) diff);
 }
 
 
@@ -276,18 +270,14 @@ void time_cholesky_SIMD(int dimension, double array[dimension][dimension]) {
 }
 
 void time_cholesky_simd_smartloading(int dimension, double array[dimension][dimension]) {
-    clock_t start, end;
-    start = clock();
+    struct timespec start, end;
+    uint64_t diff;
+
+    clock_gettime(CLOCK_REALTIME, &start);
     cholesky_simd_smartloading(dimension, array);
-    end = clock();
-    double (*transposedprint)[dimension] = allocArray(dimension, dimension);
-    /*
-    transpose(dimension, array, transposedprint);
-    print_matrix(dimension, dimension, transposedprint);
-    free(transposedprint);
-    */
-    printf("Cholesky Smartloaded optimized with SIMD took %d milliseconds to complete\n", (end - start) * 1000 / CLOCKS_PER_SEC);
-    
+    clock_gettime(CLOCK_REALTIME, &end);
+    diff = BILLION * (end.tv_sec - start.tv_sec) + end.tv_nsec - start.tv_nsec;
+    printf("Cholesky Column with SIMD took %d seconds (%llu nanoseconds) to complete\n", end.tv_sec - start.tv_sec, (long long unsigned int) diff);
 }
 
 
@@ -298,13 +288,13 @@ int main(int argc, char **argv) {
     }
     char *filepath;
     if (argc == 1) {
-        filepath = "../data/matrix.mat";
+        filepath = "../data/matrix2.mat";
     } else {
         filepath = argv[1];
     }
 
-    int cols = 450;
-    int rows = 450;
+    int cols = DIMENSION;
+    int rows = DIMENSION;
     double (*matrix)[cols] = allocArray(rows, cols);
     double (*decomp_cholesky)[cols] = allocArray(rows, cols);
     double (*transposed)[cols] = allocArray(rows, cols);

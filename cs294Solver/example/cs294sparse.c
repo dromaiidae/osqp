@@ -5,8 +5,9 @@
 #include <time.h>
 #include <immintrin.h>
 
+#define BILLION 1000000000L /* https://www.cs.rutgers.edu/~pxk/416/notes/c-tutorials/gettime.html */
 #define DIMENSION 450
-#define FILEPATH "../data/matrix.mat"
+#define FILEPATH "../data/matrix2.mat"
 
 int* SPARSE_ROW[DIMENSION];
 
@@ -24,6 +25,7 @@ int readArray(int rows, int cols, double array[rows][cols], const char *filepath
     fclose(data);
     return 0;
 }
+
 void print_matrix(int m, int n, double matrix[m][n]) {
         for (int i = 0; i < m; i++) {
             for (int j = 0; j < n; j++) {
@@ -79,7 +81,6 @@ void update_mod_col_simd_T(int col_to_update_j, int prev_col_k, int dimension, d
     double load_array[] = {0,0,0,0};
     double value_jk = array[prev_col_k][col_to_update_j];
     multiplicand = _mm256_set_pd(value_jk, value_jk, value_jk, value_jk); // a_jk
-
 
     int i;
     for (i=col_to_update_j; i+3 < dimension; i += 4) {
@@ -167,17 +168,21 @@ void create_sparse_representation(int rows, int cols, double array[rows][cols]) 
 }
 
 void time_cholesky_sparse(double array[DIMENSION][DIMENSION]) {
-    clock_t start, end;
-    start = clock();
+    struct timespec start, end;
+    uint64_t diff;
+
+    clock_gettime(CLOCK_REALTIME, &start);
     column_sparse_cholesky(array);
-    end = clock();
+    clock_gettime(CLOCK_REALTIME, &end);
+
+    /*
     double (*transposedprint)[DIMENSION] = allocArray(DIMENSION, DIMENSION);
-    
     transpose(DIMENSION, array, transposedprint);
     print_matrix(DIMENSION, DIMENSION, transposedprint);
     free(transposedprint);
-    
-    printf("Cholesky Sparse took %d milliseconds to complete\n", (end - start) * 1000 / CLOCKS_PER_SEC);
+    */
+    diff = BILLION * (end.tv_sec - start.tv_sec) + end.tv_nsec - start.tv_nsec;
+    printf("Cholesky Sparse took %d seconds (%llu nanoseconds) to complete\n", end.tv_sec - start.tv_sec, (long long unsigned int) diff);
     
 }
 int main(int argc, char **argv) {
